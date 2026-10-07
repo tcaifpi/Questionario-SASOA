@@ -135,4 +135,110 @@ with tab_avaliacao:
 
         # Q1
         st.markdown("**Q1. Desburocratização Cognitiva & Clareza**")
-        st.write("O Manual Prático e o Portal SASOA tornam compreensível o rito de criação de uma Spin-off no IFPI, eliminando
+        st.write("O Manual Prático e o Portal SASOA tornam compreensível o rito de criação de uma Spin-off no IFPI, eliminando o jargão jurídico e a linguagem administrativa hermética?")
+        q1 = st.select_slider("Classificação Q1:", options=[1, 2, 3, 4, 5], value=5, key="q1")
+
+        # Q2
+        st.markdown("**Q2. Segurança Jurídica & Dedicação Exclusiva (DE)**")
+        st.write("Os instrumentos normativos apresentados (Termo TARD, diretrizes da Lei nº 10.973/04 e pareceres da AGU) conferem segurança funcional efetiva para o pesquisador atuar na SOA?")
+        q2 = st.select_slider("Classificação Q2:", options=[1, 2, 3, 4, 5], value=5, key="q2")
+
+        # Q3
+        st.markdown("**Q3. Operacionalidade no SUAP**")
+        st.write("A esteira estruturada em 4 fases e a indicação de autuação sob nível RESTRITO (LAI - Segredo Industrial) evitam a perda de novidade e previnem diligências/retrabalhos no SUAP?")
+        q3 = st.select_slider("Classificação Q3:", options=[1, 2, 3, 4, 5], value=5, key="q3")
+
+        # Q4
+        st.markdown("**Q4. Apoio à Tomada de Decisão em Propriedade Intelectual (PI)**")
+        st.write("O instrumental decisório (Scorecard Proteger vs. Publicar e rito INPI com hash SHA-256) é prático para orientar a melhor estratégia de proteção do ativo tecnológico?")
+        q4 = st.select_slider("Classificação Q4:", options=[1, 2, 3, 4, 5], value=5, key="q4")
+
+        # Q5
+        st.markdown("**Q5. Governança de Royalties e Sustentabilidade**")
+        st.write("O modelo de rateio financeiro via FAIFPI (1/3 inventores e 2/3 instituição) e as rotas de acompanhamento pós-contratual estão claros e aplicáveis à realidade do IFPI?")
+        q5 = st.select_slider("Classificação Q5:", options=[1, 2, 3, 4, 5], value=5, key="q5")
+
+        # Q6
+        st.markdown("**Q6. Capacidade Resolutiva Global**")
+        st.write("De modo geral, o ecossistema SASOA (Manual + Portal) é eficaz para converter pesquisas aplicadas desenvolvidas no IFPI em Spin-offs Acadêmicas estruturadas no mercado?")
+        q6 = st.select_slider("Classificação Q6:", options=[1, 2, 3, 4, 5], value=5, key="q6")
+
+        st.markdown("---")
+        st.subheader("3. Parecer Qualitativo & Sugestões")
+        comentarios = st.text_area(
+            "Registre suas impressões qualitativas sobre os pontos fortes do produto ou sugestões para aprimoramento institucional:",
+            placeholder="Exemplo: O manual facilitou a compreensão dos formulários necessários no SUAP e esclareceu as dúvidas quanto à Dedicação Exclusiva..."
+        )
+
+        submitted = st.form_submit_button("💾 Enviar Avaliação do PTT")
+        if submitted:
+            salvar_avaliacao(perfil, q1, q2, q3, q4, q5, q6, comentarios)
+            st.success("✅ Avaliação registrada com sucesso! Os dados foram consolidados no banco de validação do PTT.")
+
+# ==============================================================================
+# ABA 2: PAINEL DE RESULTADOS (ESTATÍSTICA E TABELA)
+# ==============================================================================
+with tab_resultados:
+    df_dados = carregar_dados()
+    
+    if df_dados.empty:
+        st.info("ℹ️ Nenhuma avaliação registrada até o momento. Responda ao formulário na primeira aba para iniciar a consolidação.")
+    else:
+        st.subheader("📊 Métricas Consolidadas de Validação")
+        
+        col1, col2, col3 = st.columns(3)
+        total_resp = len(df_dados)
+        media_geral = df_dados[["q1_clareza", "q2_seguranca", "q3_suap", "q4_pi", "q5_royalties", "q6_global"]].mean().mean()
+        
+        # Cálculo de concordância (Notas 4 e 5)
+        respostas_likert = df_dados[["q1_clareza", "q2_seguranca", "q3_suap", "q4_pi", "q5_royalties", "q6_global"]].values.flatten()
+        concordancia_global = (sum(respostas_likert >= 4) / len(respostas_likert)) * 100
+
+        with col1:
+            st.metric("Total de Avaliações (N)", f"{total_resp}")
+        with col2:
+            st.metric("Média Geral do PTT (1 a 5)", f"{media_geral:.2f} / 5.00")
+        with col3:
+            st.metric("Índice de Concordância (IGC)", f"{concordancia_global:.1f}%")
+
+        st.markdown("---")
+        st.subheader("Médias por Dimensão Avaliada")
+        
+        medias = {
+            "Q1. Desburocratização Cognitiva": df_dados["q1_clareza"].mean(),
+            "Q2. Segurança Jurídica (DE)": df_dados["q2_seguranca"].mean(),
+            "Q3. Operacionalidade no SUAP": df_dados["q3_suap"].mean(),
+            "Q4. Tomada de Decisão em PI": df_dados["q4_pi"].mean(),
+            "Q5. Governança de Royalties": df_dados["q5_royalties"].mean(),
+            "Q6. Capacidade Resolutiva Global": df_dados["q6_global"].mean(),
+        }
+        
+        df_medias = pd.DataFrame(list(medias.items()), columns=["Dimensão Avaliada", "Nota Média (1-5)"])
+        st.bar_chart(df_medias.set_index("Dimensão Avaliada"))
+
+        # Depoimentos Qualitativos Registrados
+        st.markdown("---")
+        st.subheader("Depoimentos Qualitativos Registrados")
+        comentarios_validos = df_dados[df_dados["comentarios"].str.strip() != ""][["perfil", "comentarios", "data_hora"]]
+        
+        if comentarios_validos.empty:
+            st.write("Nenhum comentário discursivo registrado.")
+        else:
+            for _, row in comentarios_validos.iterrows():
+                st.markdown(f"""
+                <div class='metric-box'>
+                    <b>Perfil:</b> {row['perfil']} <br>
+                    <b>Registro:</b> <small>{row['data_hora']}</small><br><br>
+                    <i>"{row['comentarios']}"</i>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Exportação dos dados para comprovação na dissertação
+        st.markdown("---")
+        csv = df_dados.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Exportar Dados Brutos (CSV) para a Dissertação",
+            data=csv,
+            file_name="dados_validacao_ptt_sasoa.csv",
+            mime="text/csv"
+        )
