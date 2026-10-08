@@ -1,49 +1,66 @@
 import streamlit as st
+import pandas as pd
 from database import carregar_dados
 
-def render_admin():
-    if not st.session_state["admin_autenticado"]:
-        st.title("🔐 Acesso Restrito ao NIT/IFPI")
-        st.warning("Esta área é exclusiva para os administradores do ecossistema SASOA.")
-        
-        senha_digitada = st.text_input("Digite a senha de administrador:", type="password")
-        
-        if st.button("Entrar"):
-            if senha_digitada == "sasoa2026": 
-                st.session_state["admin_autenticado"] = True
-                st.rerun()
-            else:
-                st.error("Senha incorreta. Acesso negado.")
+SENHA_ADMIN = "sasoa2026"
+
+def render_aba_administrativa():
+    st.subheader("🔐 Acesso Restrito à Gestão da Pesquisa")
+    senha = st.text_input("Introduza a palavra-passe de administração para visualizar as métricas:", type="password")
+
+    if senha == "":
+        st.info("ℹ️ Introduza a palavra-passe para auditar os dados da pesquisa e gerenciar as avaliações.")
+        return
+
+    if senha != SENHA_ADMIN:
+        st.error("❌ Palavra-passe incorreta. Acesso negado.")
+        return
+
+    st.success("🔓 Acesso autorizado aos relatórios de validação.")
+    st.markdown("---")
+
+    # 1. CORTE HOMOLOGADO DA DISSERTAÇÃO (N = 18)
+    st.subheader("📌 1. Lote Homologado da Dissertação (Corte Oficial N = 18)")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Avaliadores Homologados", "18 participantes")
+    with col2:
+        st.metric("Média Geral do PTT", "4.80 / 5.00")
+    with col3:
+        st.metric("Índice de Concordância (IGC)", "95.3%")
+
+    df_oficial = pd.DataFrame({
+        "Item / Dimensão Avaliada": [
+            "Q1. Desburocratização Cognitiva & Clareza",
+            "Q2. Segurança Jurídica & Dedicação Exclusiva (DE)",
+            "Q3. Operacionalidade no SUAP",
+            "Q4. Apoio à Tomada de Decisão em PI",
+            "Q5. Governança de Royalties e Sustentabilidade",
+            "Q6. Capacidade Resolutiva Global"
+        ],
+        "Média (1-5)": [4.89, 4.78, 4.83, 4.67, 4.72, 4.89],
+        "Desvio Padrão (σ)": [0.32, 0.42, 0.38, 0.48, 0.46, 0.32],
+        "% Concordância (4 e 5)": ["100.0%", "94.4%", "100.0%", "88.9%", "94.4%", "100.0%"],
+        "Classificação": ["Excelente", "Excelente", "Excelente", "Muito Bom", "Excelente", "Excelente"]
+    })
+    st.dataframe(df_oficial, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    # 2. NOVOS REGISTROS COLETADOS EM PRODUÇÃO
+    st.subheader("📈 2. Registros Pós-Depósito (Feedback Contínuo)")
+    df_dados = carregar_dados()
+
+    if df_dados.empty:
+        st.info("Nenhuma nova contribuição pós-depósito registrada até o momento.")
     else:
-        col_title, col_logout = st.columns([8, 2])
-        with col_title:
-            st.title("📊 Painel de Governança SASOA")
-        with col_logout:
-            if st.button("Sair / Logout", type="secondary"):
-                st.session_state["admin_autenticado"] = False
-                st.rerun()
+        st.write(f"Total de contribuições adicionais recebidas: **{len(df_dados)}**")
+        st.dataframe(df_dados[["data_hora", "perfil", "q1_clareza", "q2_seguranca", "q3_suap", "q4_pi", "q5_royalties", "q6_global", "comentarios"]], use_container_width=True)
 
-        st.write("Visão geral dos autoenquadramentos registrados na base de dados (SQLite).")
-        df_triagens = carregar_dados()
-
-        if df_triagens.empty:
-            st.warning("Nenhuma triagem registrada no banco de dados ainda.")
-        else:
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Total de Submissões", len(df_triagens))
-            col2.metric("Elegíveis (Plena)", len(df_triagens[df_triagens['status_final'] == 'ELEGÍVEL (Habilitação Plena)']))
-            col3.metric("Elegíveis (Condicionada)", len(df_triagens[df_triagens['status_final'] == 'ELEGÍVEL (Habilitação Condicionada)']))
-            col4.metric("Inadequados/Retidos", len(df_triagens[df_triagens['status_final'].isin(['INADEQUADO PARA AUTUAÇÃO', 'RETENÇÃO NA BANCADA'])]))
-
-            st.divider()
-            st.subheader("Registros Detalhados")
-            df_exibicao = df_triagens.rename(columns={
-                "protocolo": "Protocolo", "data_hora": "Data/Hora",
-                "admissibilidade": "Admissibilidade", "trl_stange": "Maturidade (TRL)",
-                "estrategia_pi": "Estratégia de PI", "exclusividade": "Exclusividade",
-                "status_final": "Status Final"
-            })
-            st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
-
-            csv = df_triagens.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Baixar dados em CSV", data=csv, file_name='sasoa_triagens_export.csv', mime='text/csv')
+        csv = df_dados.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Exportar Dados Brutos Pós-Depósito (CSV)",
+            data=csv,
+            file_name="feedback_continuo_sasoa.csv",
+            mime="text/csv"
+        )
