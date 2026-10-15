@@ -2,15 +2,43 @@ name: Manter App SASOA Ativo
 
 on:
   schedule:
-    # Executa a cada 6 horas todos os dias
-    - cron: '0 */6 * * *'
+    # Executa a cada 4 horas
+    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 jobs:
   wake_app:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Streamlit SASOA
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar Playwright e Chromium
         run: |
-          curl -s -L --max-time 30 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "https://questionario-sasoa-ggifjg43mxm57geif9oemy.streamlit.app/" || true
-          echo "Sinal de ativação enviado com sucesso."
+          npm install playwright
+          npx playwright install chromium
+
+      - name: Visitar e Acordar Aplicacao
+        run: |
+          node -e '
+          const { chromium } = require("playwright");
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage();
+            console.log("A aceder ao Streamlit...");
+            await page.goto("https://questionario-sasoa-ggifjg43mxm57geif9oemy.streamlit.app/", { waitUntil: "networkidle", timeout: 60000 });
+            
+            const wakeButton = await page.$("button:has-text(\"Yes, get this app back up!\")");
+            if (wakeButton) {
+              console.log("Suspensao detetada. A clicar no botao...");
+              await wakeButton.click();
+              await page.waitForTimeout(20000);
+              console.log("Comando de reativacao acionado.");
+            } else {
+              console.log("A aplicacao ja se encontra ativa.");
+            }
+            await browser.close();
+          })();
+          '
